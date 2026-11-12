@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SBA 7(a) · Cảnh báo rủi ro vỡ nợ</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.35.2/plotly.min.js"></script>
+<style>
+:root{--navy:#0F2A47;--blue:#15508C;--orange:#C2410C;--red:#C0392B;--yel:#D9A400;--grn:#2F6B3A;--bg:#fff;--fg:#1f2937;--card:#fff;--line:#d9dee5}
+@media(prefers-color-scheme:dark){:root{--navy:#cfe0f5;--bg:#0e1621;--fg:#e5e9f0;--card:#162231;--line:#2a3a4d}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,"Segoe UI",Roboto,sans-serif;line-height:1.55}
+main{max-width:1100px;margin:0 auto;padding:24px 16px 60px}
+h1,h2,h3{color:var(--navy)}h1{font-size:clamp(1.6rem,4vw,2.4rem);margin:.2em 0}
+.sub{opacity:.7;font-size:.9rem}
+nav{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin:18px 0}
+nav button{background:none;border:0;border-bottom:3px solid transparent;padding:10px 12px;cursor:pointer;color:var(--fg);font-size:.95rem}
+nav button.on{border-color:var(--blue);color:var(--blue);font-weight:600}
+section{display:none}section.on{display:block}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.m{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}.m b{display:block;font-size:1.4rem}.m span{font-size:.85rem;opacity:.7}
+.tier{border-left:10px solid;padding:10px 16px;margin:6px 0;background:var(--card);border-radius:10px;box-shadow:0 1px 3px #0002}
+table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:first-child,td:first-child{text-align:left}
+.note{background:#fff7e0;color:#5c4400;padding:12px 16px;border-radius:8px;font-size:.9rem}
+.info{background:#e8f1fb;color:#0F2A47;padding:12px 16px;border-radius:8px}
+label{display:block;font-size:.9rem;margin:10px 0 4px}select,input[type=range]{width:100%}select{padding:8px;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--fg)}
+.cols{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.big{font-size:2.4rem;font-weight:600;color:var(--navy)}
+.seg button{border:1px solid var(--line);background:var(--card);color:var(--fg);padding:6px 12px;cursor:pointer}.seg button.on{background:var(--blue);color:#fff}
+.cap{font-size:.85rem;opacity:.75}
+</style>
+</head>
+<body>
+<main>
+<h1>Dự báo rủi ro vỡ nợ khoản vay SBA 7(a)</h1>
+<div class="sub">Nhóm 01 · Phân tích dữ liệu nâng cao · UEL · GVHD: TS. Nguyễn Thôn Dã · FY2000–FY2019 + FRED-MD</div>
+<nav id="nav"></nav>
+
+<section id="t0">
+<div class="grid">
+<div class="m"><span>Bài toán</span><b>Phân loại nhị phân</b><span>có giám sát</span></div>
+<div class="m"><span>Nhãn</span><b>CHGOFF=1 / PIF=0</b></div>
+<div class="m"><span>ROC-AUC test (XGBoost)</span><b>0,603</b></div>
+<div class="m"><span>PR-AUC test (chỉ số chính)</span><b>0,097</b><span>≈1,4× ngẫu nhiên (0,070)</span></div>
+</div>
+<p><b>Học máy có giám sát:</b> mỗi khoản vay trong quá khứ có nhãn thật (xóa nợ hay trả đủ), mô hình học quan hệ giữa đặc trưng lúc phê duyệt và nhãn.</p>
+<p><b>Quy trình:</b> chia dữ liệu theo thời gian (train / valid / test theo năm tài khóa) → Logistic Regression, Random Forest, XGBoost → trọng số lớp (scale_pos_weight ≈ 3,55), không dùng SMOTE → hiệu chỉnh xác suất bằng isotonic → giải thích bằng SHAP → phân tầng Đỏ/Vàng/Xanh → giám sát PSI và ROC-AUC theo cohort.</p>
+<p><b>Kết luận chính:</b> khi chỉ dùng thông tin biết lúc phê duyệt, khả năng phân biệt chỉ ở mức khiêm tốn, nên mô hình dùng để <b>quyết định mức rà soát</b>, không để tự động từ chối.</p>
+</section>
+
+<section id="t1">
+<h2>So sánh mô hình (Bảng 3.18, đã loại biến kỳ hạn)</h2>
+<div style="overflow-x:auto"><table id="mt"></table></div>
+<p class="seg" id="seg"></p>
+<div id="mc"></div>
+<p class="info">Mô hình chọn theo PR-AUC trên valid (không nhìn test): XGBoost (+vĩ mô). Biến vĩ mô làm ROC-AUC tăng khoảng 0,011 nhưng PR-AUC không cải thiện có ý nghĩa.</p>
+</section>
+
+<section id="t2">
+<div class="cols">
+<div><h3>Decile lift (Bảng 3.20)</h3><div id="dc"></div><p class="cap">10% khoản vay rủi ro nhất có tỷ lệ xóa nợ 10,9% (lift 1,55); 10% thấp nhất chỉ 3,2% (lift 0,45).</p></div>
+<div><h3>Top 10 đặc trưng theo SHAP (Bảng 3.21)</h3><div id="sc"></div><p class="cap">Sáu biến FRED-MD cộng lại chiếm 34,0% đóng góp SHAP. SHAP là đóng góp trong mô hình, không phải quan hệ nhân quả.</p></div>
+</div>
+<div style="overflow-x:auto"><table id="dt"></table></div>
+</section>
+
+<section id="t3">
+<h2>Điểm mấu chốt: data leakage từ biến kỳ hạn (term)</h2>
+<div id="lc"></div>
+<ul>
+<li><b>Data leakage:</b> feature chứa thông tin chỉ có sau khi đã biết target, nên điểm cao giả tạo.</li>
+<li><b>Vì sao term là leakage:</b> kỳ hạn thực tế chỉ biết khi khoản vay đã kết thúc, lúc phê duyệt chưa có.</li>
+<li><b>Ablation:</b> cùng một XGBoost có và không có term; ROC-AUC nhảy từ 0,601 lên 0,965, nên nhóm loại feature này. <b>0,601 mới là hiệu năng thực tế tại thời điểm phê duyệt.</b></li>
+</ul>
+</section>
+
+<section id="t4">
+<h2>RQ2: số khoản vay theo tháng và khả năng dự báo</h2>
+<ul>
+<li><b>Xu hướng:</b> tăng đến 2006–2007, sau đó <b>giảm 78%</b> đến tháng 01/2011 (khủng hoảng tài chính).</li>
+<li><b>Mùa vụ:</b> lặp lại mỗi năm, nhiều khoản vay nhất vào tháng 9, ít nhất vào tháng 1.</li>
+<li><b>Walk-forward:</b> ETS có sai số thấp nhất.</li>
+</ul>
+<div id="tc"></div>
+<p class="cap">Biến vĩ mô không giúp thêm: SARIMAX (723) kém hơn SARIMA (646). Trên hold-out 36 tháng, seasonal naive tốt nhất (RMSE 801).</p>
+</section>
+
+<section id="t5">
+<h2>Phân tầng rủi ro (Bảng 4.9)</h2>
+<div class="grid" id="tiers"></div>
+<div id="tb"></div>
+<hr>
+<h2>Chấm điểm một hồ sơ</h2>
+<p class="note"><b>Chế độ mô phỏng minh họa:</b> điểm bên dưới được ước lượng từ các lift nhóm trong báo cáo (Bảng 3.14), không phải xác suất của XGBoost. Dùng để minh họa luồng sử dụng.</p>
+<div class="grid">
+<div><label>Kênh xử lý (ProcessingMethod)</label><select id="method"></select></div>
+<div><label>Loại hình doanh nghiệp</label><select id="btype"></select></div>
+<div><label>Số tiền vay (USD): <b id="amtv"></b></label><input type="range" id="amt" min="5000" max="2000000" step="5000" value="150000"></div>
+<div><label>Ngành</label><select id="sector"></select></div>
+</div>
+<div class="cols" style="margin-top:16px;align-items:center">
+<div><span class="cap">Xác suất xóa nợ ước lượng</span><div class="big" id="p"></div><span class="cap" id="pl"></span></div>
+<div id="res"></div>
+</div>
+<p class="cap">Mô hình chỉ hỗ trợ quyết định mức rà soát, không tự động từ chối. Cần kiểm tra thêm công bằng và quyền riêng tư; giám sát hằng tháng bằng PSI (cảnh báo &gt; 0,25) và ROC-AUC theo cohort (giảm &gt; 0,03 so với lúc test).</p>
+</section>
+</main>
+<script>
+const C={navy:"#15508C",blue:"#15508C",orange:"#C2410C",red:"#C0392B",yel:"#D9A400",grn:"#2F6B3A"};
+const $=id=>document.getElementById(id);
+const L={margin:{t:20,b:50,l:50,r:10},paper_bgcolor:"rgba(0,0,0,0)",plot_bgcolor:"rgba(0,0,0,0)",font:{color:getComputedStyle(document.body).color}};
+const cfg={displayModeBar:false,responsive:true};
+const MODELS=[["Logistic (cơ sở)",.535,.549,.073,.084,.067],["Logistic (+vĩ mô)",.545,.558,.076,.084,.084],["Random Forest (+vĩ mô)",.554,.573,.077,.088,.107],["XGBoost (cơ sở)",.574,.592,.080,.094,.136],["XGBoost (+vĩ mô)",.590,.603,.087,.097,.150]];
+const MH=["Mô hình","ROC-AUC valid","ROC-AUC test","PR-AUC valid","PR-AUC test","KS test"];
+const DEC=[[1,9607,10.9,15.5,1.55],[2,9606,10.1,14.5,1.45],[3,9607,8.8,12.5,1.25],[4,9606,7.8,11.2,1.12],[5,9607,7.1,10.2,1.02],[6,9606,6.6,9.4,.94],[7,9606,6.1,8.7,.87],[8,9607,5.1,7.2,.72],[9,9606,4.5,6.4,.64],[10,9607,3.2,4.5,.45]];
+const SHAP=[["naics_sector",15,0],["BorrState",14,0],["busloans_yoy_lag1",13.2,1],["fedfunds_lag1",9.9,1],["ProcessingMethod",9.4,0],["BusinessAge",7.7,0],["log_gross",7.6,0],["unrate_lag1",5.4,1],["log_jobs",2.8,0],["BusinessType",2.5,0]];
+const TIERS=[["Đỏ",15.7,10.8,"Rà soát thủ công, ghi lý do nếu vẫn duyệt; mô hình không tự từ chối",C.red],["Vàng",45.5,7.7,"Quy trình thẩm định chuẩn",C.yel],["Xanh",38.8,4.7,"Có thể ưu tiên tiếp cận để mở rộng danh mục",C.grn]];
+const f=(v)=>String(v).replace(".",",");
+function table(el,head,rows){$(el).innerHTML="<tr>"+head.map(h=>`<th>${h}</th>`).join("")+"</tr>"+rows.map(r=>"<tr>"+r.map(v=>`<td>${typeof v==="number"?f(v):v}</td>`).join("")+"</tr>").join("")}
+// tabs
+const names=["Tổng quan","Mô hình","Decile & SHAP","Data leakage","Dự báo chuỗi thời gian","Phân tầng & chấm điểm"];
+const drawn={};
+function show(i){names.forEach((_,j)=>{$("t"+j).classList.toggle("on",i===j);nav.children[j].classList.toggle("on",i===j)});
+  if(!drawn[i]){drawn[i]=1;draw[i]&&draw[i]()}setTimeout(()=>window.dispatchEvent(new Event("resize")),30)}
+const nav=$("nav");names.forEach((n,i)=>{const b=document.createElement("button");b.textContent=n;b.onclick=()=>show(i);nav.appendChild(b)});
+const draw={
+1(){table("mt",MH,MODELS);const seg=$("seg");["PR-AUC test","ROC-AUC test","KS test"].forEach((m,k)=>{const b=document.createElement("button");b.textContent=m;b.onclick=()=>{[...seg.children].forEach(x=>x.classList.remove("on"));b.classList.add("on");bar(m)};seg.appendChild(b)});seg.children[0].classList.add("on");bar("PR-AUC test")},
+2(){Plotly.newPlot("dc",[{x:DEC.map(d=>d[0]),y:DEC.map(d=>d[4]),type:"bar",text:DEC.map(d=>f(d[4])),textposition:"outside",marker:{color:C.blue}}],{...L,xaxis:{title:"Decile",dtick:1},yaxis:{title:"Lift"},shapes:[{type:"line",xref:"paper",x0:0,x1:1,y0:1,y1:1,line:{dash:"dash",color:C.orange}}]},cfg);
+ const s=[...SHAP].reverse();Plotly.newPlot("sc",[{y:s.map(d=>d[0]),x:s.map(d=>d[1]),type:"bar",orientation:"h",text:s.map(d=>f(d[1])),marker:{color:s.map(d=>d[2]?C.orange:C.blue)}}],{...L,margin:{t:20,b:40,l:130,r:10},xaxis:{title:"Tỷ trọng SHAP (%) · cam = vĩ mô"}},cfg);
+ table("dt",["Decile","Số khoản","Tỷ lệ xóa nợ (%)","% khoản xóa nợ bắt được","Lift"],DEC)},
+3(){Plotly.newPlot("lc",[{x:["Loại feature term","Giữ feature term","Chỉ với feature term"],y:[.601,.965,.954],type:"bar",text:["0,601","0,965","0,954"],textposition:"outside",marker:{color:[C.blue,C.orange,C.orange]}}],{...L,yaxis:{title:"ROC-AUC",range:[0,1.05]}},cfg)},
+4(){Plotly.newPlot("tc",[{x:["ETS","SARIMA","SARIMAX (+vĩ mô)"],y:[606,646,723],type:"bar",text:[606,646,723],textposition:"outside",marker:{color:C.blue}}],{...L,yaxis:{title:"RMSE (khoản/tháng)"}},cfg)},
+5(){$("tiers").innerHTML=TIERS.map(t=>`<div class="tier" style="border-color:${t[4]}"><b style="color:${t[4]}">${t[0].toUpperCase()}</b> · ${f(t[1])}% khoản vay<br>Tỷ lệ xóa nợ <b>${f(t[2])}%</b><br><span style="font-size:.9em">${t[3]}</span></div>`).join("");
+ Plotly.newPlot("tb",TIERS.map(t=>({y:["Khoản vay"],x:[t[1]],name:t[0],type:"bar",orientation:"h",marker:{color:t[4]},text:f(t[1])+"%",textposition:"inside"})),{...L,barmode:"stack",height:170,margin:{t:10,b:45,l:70,r:10},xaxis:{title:"% khoản vay (test)"}},cfg);score()}
+};
+function bar(m){const k=MH.indexOf(m);const sh=m==="PR-AUC test"?[{type:"line",xref:"paper",x0:0,x1:1,y0:.07,y1:.07,line:{dash:"dash",color:C.orange}}]:[];
+ Plotly.newPlot("mc",[{x:MODELS.map(r=>r[0]),y:MODELS.map(r=>r[k]),type:"bar",text:MODELS.map(r=>f(r[k])),textposition:"outside",marker:{color:C.blue}}],{...L,yaxis:{title:m},shapes:sh,annotations:sh.length?[{xref:"paper",x:1,y:.07,text:"Mức ngẫu nhiên 0,070",showarrow:false,yshift:10,xanchor:"right",font:{color:C.orange}}]:[]},cfg)}
+// scorer
+const LM={"Thông thường":1,"Community Express":2.30,"International Trade Loans":1.65,"Working Capital CAPLine":.27,"7a with EWCP":.21,"Preferred Lenders with EWCP":.12};
+const LB={CORPORATION:.9,INDIVIDUAL:1.26,PARTNERSHIP:1};
+Object.keys(LM).forEach(k=>$("method").add(new Option(k)));Object.keys(LB).forEach(k=>$("btype").add(new Option(k)));["Khác","Y tế (62)","Khai khoáng (21)"].forEach(k=>$("sector").add(new Option(k)));
+function score(){const a=+$("amt").value;$("amtv").textContent=a.toLocaleString("en-US");
+ const lift=Math.sqrt(LM[$("method").value])*Math.sqrt(LB[$("btype").value])*(a<50000?1.15:1)*($("sector").value.startsWith("Y tế")?.8:1);
+ const p=Math.min(Math.max(.07*lift,.01),.4);const t=p>=.10?0:p>=.065?1:2;const T=TIERS[t];
+ $("p").textContent=(p*100).toFixed(1).replace(".",",")+"%";$("pl").textContent=(p/.07).toFixed(2).replace(".",",")+"× mức chung (7,0%)";
+ $("res").innerHTML=`<div class="tier" style="border-color:${T[4]}"><b style="color:${T[4]}">Tầng ${T[0].toUpperCase()}</b><br>${T[3]}</div>`}
+["method","btype","amt","sector"].forEach(i=>$(i).addEventListener("input",score));
+show(0);
+</script>
+</body>
+</html>
