@@ -46,7 +46,7 @@ TIERS = pd.DataFrame({
                   "Quy trình thẩm định chuẩn", "Có thể ưu tiên tiếp cận để mở rộng danh mục"],
 })
 
-tabs = st.tabs(["Tổng quan", "Mô hình", "Decile & SHAP", "Data leakage", "Dự báo chuỗi thời gian", "Phân tầng & chấm điểm"])
+tabs = st.tabs(["Tổng quan", "Mô hình", "Decile & SHAP", "Data leakage", "Dự báo chuỗi thời gian", "Phân tầng rủi ro"])
 
 with tabs[0]:
     c = st.columns(4)
@@ -128,31 +128,3 @@ with tabs[5]:
     fig.update_layout(barmode="stack", height=160, margin=dict(t=10, b=10), xaxis_title="% khoản vay (test)")
     st.plotly_chart(fig)
 
-    st.divider()
-    st.subheader("Chấm điểm một hồ sơ")
-    bundle = "models/model_bundle.joblib"
-    real = os.path.exists(bundle)
-    if real:
-        st.success("Đang dùng mô hình thật (models/model_bundle.joblib).")
-    else:
-        st.warning("**Chế độ mô phỏng minh họa:** chưa có file mô hình thật nên điểm bên dưới được ước lượng từ các lift nhóm trong báo cáo (Bảng 3.14), "
-                   "không phải xác suất của XGBoost. Dùng để minh họa luồng sử dụng; để dùng mô hình thật, xem README.")
-    c1, c2, c3 = st.columns(3)
-    method = c1.selectbox("Kênh xử lý (ProcessingMethod)", ["Thông thường", "Community Express", "International Trade Loans",
-                                                           "Working Capital CAPLine", "7a with EWCP", "Preferred Lenders with EWCP"])
-    btype = c2.selectbox("Loại hình doanh nghiệp", ["CORPORATION", "INDIVIDUAL", "PARTNERSHIP"])
-    amount = c3.slider("Số tiền vay (USD)", 5_000, 2_000_000, 150_000, step=5_000)
-    sector = st.selectbox("Ngành", ["Khác", "Y tế (62)", "Khai khoáng (21)"])
-    LIFT_M = {"Thông thường": 1.0, "Community Express": 2.30, "International Trade Loans": 1.65,
-              "Working Capital CAPLine": 0.27, "7a with EWCP": 0.21, "Preferred Lenders with EWCP": 0.12}
-    LIFT_B = {"CORPORATION": 0.9, "INDIVIDUAL": 1.26, "PARTNERSHIP": 1.0}
-    lift = LIFT_M[method] ** 0.5 * LIFT_B[btype] ** 0.5 * (1.15 if amount < 50_000 else 1.0) * (0.8 if sector.startswith("Y tế") else 1.0)
-    p = min(max(0.070 * lift, 0.01), 0.40)
-    tier = "Đỏ" if p >= 0.10 else ("Vàng" if p >= 0.065 else "Xanh")
-    colr = {"Đỏ": RED, "Vàng": YEL, "Xanh": GRN}[tier]
-    m1, m2 = st.columns(2)
-    m1.metric("Xác suất xóa nợ ước lượng", f"{p:.1%}", f"{p/0.070:.2f}× mức chung (7,0%)")
-    m2.markdown(f"<div class='tier' style='border-color:{colr}'><b style='color:{colr}'>Tầng {tier.upper()}</b><br>"
-                f"{TIERS.set_index('Tầng').loc[tier, 'Hành động']}</div>", unsafe_allow_html=True)
-    st.caption("Mô hình chỉ hỗ trợ quyết định mức rà soát, không tự động từ chối. Cần kiểm tra thêm công bằng và quyền riêng tư; "
-               "giám sát hằng tháng bằng PSI (cảnh báo > 0,25) và ROC-AUC theo cohort (giảm > 0,03 so với lúc test).")
